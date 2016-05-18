@@ -1,6 +1,9 @@
 #include "opencv2\opencv.hpp"
 
-int main(){
+#include "NonPhotorealisticRender.hpp"
 
+int main(int argc, char * argv[]){
+  cp::NonPhotorealisticRender npr(argv[1]);
+  npr.run();
   return 0;
 }

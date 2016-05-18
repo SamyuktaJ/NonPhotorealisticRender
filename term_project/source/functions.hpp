@@ -62,6 +62,60 @@ void elementWiseOperator(const cv::Mat& src1, const cv::Mat& src2, cv::Mat& dist
   dist = temp;
 }
 
+// read image, normalize to [0, 1], use CV_64FC3
+void readImage(const std::string& filename, cv::Mat& image){
+  image = cv::imread(filename);
+  image.convertTo(image, CV_64FC3, 1.0 / 255);
+}
+
+// write image, scale to [0, 255], flag to control gamma correction
+void writeImage(const std::string& filename, const cv::Mat& image){
+  cv::Mat output;
+  image.convertTo(output, CV_8UC3, 255);
+  cv::imwrite(filename, output);
+}
+
+// change color space, note that opencv use BGR
+// BGR->LAB
+void BGR2LAB(const cv::Mat& src, cv::Mat& dist){
+  // TODO
+}
+
+// LAB->BGR
+void LAB2BGR(const cv::Mat& src, cv::Mat& dist){
+  // TODO
+}
+
+// BGR->YUV
+void BGR2YUV(const cv::Mat& src, cv::Mat& dist){
+  // TODO
+}
+
+// YUV->BGR
+void YUV2BGR(const cv::Mat& src, cv::Mat& dist){
+  // TODO
+}
+
+// padding image with boundary
+void paddingWithReplicate(const cv::Mat& src, int paddingSize, cv::Mat& dist){
+  // TODO
+}
+
+// f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
+void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
+  // TODO
+}
+
+// bilateral filter
+void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, cv::Mat& dist){
+  // TODO
+}
+
+// Fast bilateral filter, use segment to speed up
+void piecewiseLinearBilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, int segment, cv::Mat& dist){
+  // TODO
+}
+
 }
 
 #endif // FUNCTIONS_HPP_INCLUDED

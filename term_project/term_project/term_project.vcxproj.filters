@@ -23,5 +23,8 @@
     <ClInclude Include="..\source\functions.hpp">
       <Filter>標頭檔</Filter>
     </ClInclude>
+    <ClInclude Include="..\source\NonPhotorealisticRender.hpp">
+      <Filter>標頭檔</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
