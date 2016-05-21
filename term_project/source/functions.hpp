@@ -241,6 +241,51 @@ void GaussianFilter(const cv::Mat& src, cv::Mat& dist, int windowSize, double si
   }
 }
 
+// f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
+template<typename T>
+void gaussianFilter2D(const cv::Mat& src, int windowSize, double sigmaS, cv::Mat& dist){
+  dist.create(src.rows, src.cols, src.type());
+  int paddingSize = windowSize / 2;
+  cv::Mat kernel, padding;
+  getGaussianKernel<T>(1, windowSize, sigmaS, kernel); // 1D gaussian kernel
+  paddingWithReplicate<T>(src, paddingSize, padding);
+  T* ptrk; // pointer to kernel
+  T* ptrd; // pointer to dist
+  const T* ptrp;
+  T num;
+  for (int i = 0; i < dist.rows; i++){
+    ptrd = dist.ptr<T>(i);
+    for (int j = 0; j < dist.cols; j++){
+      for (int c = 0; c < dist.channels(); c++){
+        num = 0.0;
+        ptrk = kernel.ptr<T>(0);
+        ptrp = padding.ptr<T>(i + paddingSize, j);
+        for (int ki = 0; ki < windowSize; ki++){ // iterate gaussian kernel, horizon direction
+          num += (*ptrk++) * ptrp[c];
+          ptrp += padding.channels();
+        }
+        *ptrd++ = num;
+      }
+    }
+  }
+  paddingWithReplicate<T>(dist, paddingSize, padding);
+  for (int i = 0; i < dist.rows; i++){
+    ptrd = dist.ptr<T>(i);
+    for (int j = 0; j < dist.cols; j++){
+      for (int c = 0; c < dist.channels(); c++){
+        num = 0.0;
+        ptrk = kernel.ptr<T>(0);
+        for (int ki = 0; ki < windowSize; ki++){ // iterate gaussian kernel, vertical direction
+          ptrp = padding.ptr<T>(i + ki, j + paddingSize);
+          num += (*ptrk++) * ptrp[c];
+          ptrp += padding.channels();
+        }
+        *ptrd++ = num;
+      }
+    }
+  }
+}
+
 // bilateral filter
 template<typename T>
 void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, cv::Mat& dist){
@@ -249,7 +294,7 @@ void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double s
   cv::Mat gKernel;
   cv::Mat padding;
   getGaussianKernel<T>(windowSize, windowSize, sigmaS, gKernel);
-  paddingWithReplicate(src, paddingSize, padding);
+  paddingWithReplicate<T>(src, paddingSize, padding);
   T* ptrd; // point to dist image
   const T* ptrgk; // point to gaussian kernel
   const T* ptrp; // point to padding image
@@ -279,10 +324,56 @@ void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double s
   }
 }
 
+namespace {
+template<typename T>
+class funcexp{
+public:
+  funcexp(T s) : s(s){}
+  T operator()(T x){ return exp(-x*x / (2 * s*s)); }
+private:
+  T s;
+};
+template<typename T>
+class funciterpolation{
+public:
+  funciterpolation(T current, T step) : current(current), step(step){}
+  T operator()(T x, T y){
+    if (y > current - step && y < current + step){
+      return x * (step - abs(y - current)) / step;
+    }
+    return 0.0;
+  }
+private:
+  T current, step;
+};
+}
 // Fast bilateral filter, use segment to speed up
 template<typename T>
 void piecewiseLinearBilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, int segment, cv::Mat& dist){
-  // TODO
+  assert(src.channels() == 1);
+  cv::Mat temp(src.rows, src.cols, src.depth(), 0.0);
+  int paddingSize = windowSize / 2;
+
+  cv::Mat intensity_exp_range;
+  cv::Mat normalization_factor;
+  cv::Mat H, J, H_gaussian;
+  T currentIntensity = 0.0;
+  T minIntensity = 0.0;
+  T maxIntensity = 0.0;
+  cv::minMaxIdx(src, &minIntensity, &maxIntensity);
+  T step = (maxIntensity - minIntensity) / segment;
+  funcexp<T> fexp(sigmaR);
+  for (int i = 0; i <= segment; i++){ // all intensity segment
+    currentIntensity = minIntensity + i*step; // i
+    elementWiseOperator<T>(src - currentIntensity, intensity_exp_range, fexp); // evaluate gr at each pixel, G = g_sigma_r(I - i)
+    gaussianFilter2D<T>(intensity_exp_range, windowSize, sigmaS, normalization_factor); // normalization factor, K = G conv with gaussian kernel
+    elementWiseOperator<T>(intensity_exp_range, src, H, [](T x, T y){return x*y; }); // compute H for each pixel, H = G x I (element-wise)
+    gaussianFilter2D<T>(H, windowSize, sigmaS, H_gaussian); // H* = H conv with gaussian kernel
+    elementWiseOperator<T>(H_gaussian, normalization_factor, J, [](T x, T y){return x / y; }); // normalize, H = H* / K (element-wise)
+    elementWiseOperator<T>(J, src, J, funciterpolation<T>(currentIntensity, step)); // InterpolationWeight
+    temp = temp + J; // InterpolationWeight
+  }
+  dist = temp;
 }
 
 }
