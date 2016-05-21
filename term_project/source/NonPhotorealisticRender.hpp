@@ -89,10 +89,13 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
   std::cout << "End parsing config file.\n" << std::endl;
 }
 
-
-
-
 void NonPhotorealisticRender::run(){
+	cv::Mat dist;
+	BGR2LAB(original, dist);
+	cv::imshow("Lab", dist);
+	LAB2BGR(dist, dist);
+	cv::imshow("RGB", dist);
+	cv::waitKey(0);
 }
 
 }
