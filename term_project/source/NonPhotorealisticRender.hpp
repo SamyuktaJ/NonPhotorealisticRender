@@ -91,10 +91,8 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
 
 void NonPhotorealisticRender::run(){
 	cv::Mat dist;
-	BGR2LAB(original, dist);
-	cv::imshow("Lab", dist);
-	LAB2BGR(dist, dist);
-	cv::imshow("RGB", dist);
+	DoG_EdgeDetection<double>(original, dist, 0.98, 2.0, 1.0);
+	cv::imshow("Edge", dist);
 	cv::waitKey(0);
 }
 

@@ -241,6 +241,48 @@ void GaussianFilter(const cv::Mat& src, cv::Mat& dist, int windowSize, double si
   }
 }
 
+// L range from 0 to 100
+void BGR2L(const cv::Mat& src, cv::Mat& dist) {
+	cv::Mat srcLab;
+	BGR2LAB(src, srcLab);
+	std::vector<cv::Mat> LabSplit;
+	split(srcLab, LabSplit);
+	dist = LabSplit[0];
+}
+
+template<typename T>
+void DoG_EdgeDetection(const cv::Mat& src, cv::Mat& dist, double tau, double sigmaE, double phi) {
+	dist = cv::Mat(src.rows, src.cols, CV_64FC1);
+	// Perfom edge detection on lmninance channel
+	cv::Mat srcL;
+	BGR2L(src, srcL);
+
+	// generate 2 Gaussian filtered image
+	cv::Mat S_sigmaE, S_sigmaR;
+	GaussianFilter<T>(srcL, S_sigmaE, 7, sigmaE);
+	GaussianFilter<T>(srcL, S_sigmaR, 7, sigmaE*sqrt(1.6));
+
+	// DoG
+	T *outPix, *sigmaE_Pix, *sigmaR_Pix;
+	for (int i = 0; i < dist.rows; ++i) {
+		outPix = dist.ptr<T>(i);
+		sigmaE_Pix = S_sigmaE.ptr<T>(i);
+		sigmaR_Pix = S_sigmaR.ptr<T>(i);
+		for (int j = 0; j < dist.cols; ++j) {
+			// slightly smoothed step function
+			if ((sigmaE_Pix[0] - tau * sigmaR_Pix[0]) > 0)
+				outPix[0] = 1.0;
+			else
+				outPix[0] = 1.0 + tanh(phi * (sigmaE_Pix[0] - tau * sigmaR_Pix[0]));
+
+			outPix++;
+			sigmaE_Pix++;
+			sigmaR_Pix++;
+		}
+	}
+
+}
+
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
 template<typename T>
 void gaussianFilter2D(const cv::Mat& src, int windowSize, double sigmaS, cv::Mat& dist){
