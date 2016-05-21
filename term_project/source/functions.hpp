@@ -82,7 +82,7 @@ void BGR2LAB(const cv::Mat& src, cv::Mat& dist){
   // convert to single-precision floating point (openCV constraint)
   cv::Mat src32 = cv::Mat(src.rows, src.cols, CV_32FC3);
   src.convertTo(src32, CV_32FC3);
-  cv::Mat dist32 = cv::Mat(src.rows, src.cols, CV_32FC3);	
+  cv::Mat dist32 = cv::Mat(src.rows, src.cols, CV_32FC3);  
   cv::cvtColor(src32, dist32, CV_BGR2Lab);
   dist = cv::Mat(src.rows, src.cols, src.type());
   dist32.convertTo(dist, CV_64FC3);
@@ -189,45 +189,142 @@ void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
 
 // L range from 0 to 100
 void BGR2L(const cv::Mat& src, cv::Mat& dist) {
-	cv::Mat srcLab;
-	BGR2LAB(src, srcLab);
-	std::vector<cv::Mat> LabSplit;
-	split(srcLab, LabSplit);
-	dist = LabSplit[0];
+  cv::Mat srcLab;
+  BGR2LAB(src, srcLab);
+  std::vector<cv::Mat> LabSplit;
+  split(srcLab, LabSplit);
+  dist = LabSplit[0];
 }
 
 template<typename T>
 void DoG_EdgeDetection(const cv::Mat& src, cv::Mat& dist, double tau, double sigmaE, double phi) {
-	dist = cv::Mat(src.rows, src.cols, CV_64FC1);
-	// Perfom edge detection on lmninance channel
-	cv::Mat srcL;
-	BGR2L(src, srcL);
+  dist = cv::Mat(src.rows, src.cols, CV_64FC1);
+  // Perfom edge detection on lmninance channel
+  cv::Mat srcL;
+  BGR2L(src, srcL);
 
-	// generate 2 Gaussian filtered image
-	cv::Mat S_sigmaE, S_sigmaR;
-	gaussianFilter2D<T>(srcL, 27, sigmaE, S_sigmaE);
-	gaussianFilter2D<T>(srcL, 27, sigmaE*sqrt(1.6), S_sigmaE);
+  // generate 2 Gaussian filtered image
+  cv::Mat S_sigmaE, S_sigmaR;
+  gaussianFilter2D<T>(srcL, 7, sigmaE, S_sigmaE);
+  gaussianFilter2D<T>(srcL, 7, sigmaE*sqrt(1.6), S_sigmaR);
 
-	// DoG
-	T *outPix, *sigmaE_Pix, *sigmaR_Pix;
-	for (int i = 0; i < dist.rows; ++i) {
-		outPix = dist.ptr<T>(i);
-		sigmaE_Pix = S_sigmaE.ptr<T>(i);
-		sigmaR_Pix = S_sigmaR.ptr<T>(i);
-		for (int j = 0; j < dist.cols; ++j) {
-			// slightly smoothed step function
-			if ((sigmaE_Pix[0] - tau * sigmaR_Pix[0]) > 0)
-				outPix[0] = 1.0;
-			else
-				outPix[0] = 1.0 + tanh(phi * (sigmaE_Pix[0] - tau * sigmaR_Pix[0]));
+  // DoG
+  T *outPix, *sigmaE_Pix, *sigmaR_Pix;
+  for (int i = 0; i < dist.rows; ++i) {
+    outPix = dist.ptr<T>(i);
+    sigmaE_Pix = S_sigmaE.ptr<T>(i);
+    sigmaR_Pix = S_sigmaR.ptr<T>(i);
+    for (int j = 0; j < dist.cols; ++j) {
+      // slightly smoothed step function
+      if ((sigmaE_Pix[0] - tau * sigmaR_Pix[0]) > 0)
+        outPix[0] = 1.0;
+      else
+        outPix[0] = 1.0 + tanh(phi * (sigmaE_Pix[0] - tau * sigmaR_Pix[0]));
 
-			outPix++;
-			sigmaE_Pix++;
-			sigmaR_Pix++;
-		}
-	}
-
+      outPix++;
+      sigmaE_Pix++;
+      sigmaR_Pix++;
+    }
+  }
 }
+
+template<typename T>
+void corre1D(const cv::Mat& src, const cv::Mat& kernel, cv::Mat& dist) {
+  dist.create(src.rows, src.cols, src.type());
+  cv::Mat padding;
+  int paddingSize = kernel.cols / 2;
+  paddingMirror<T>(src, paddingSize, padding);
+
+  T num;
+  T* ptrd; // pointer to dist
+  const T* ptrk; // pointer to kernel
+  const T* ptrp; // pointer to padding source
+  for (int i = 0; i < dist.rows; i++) {
+    ptrd = dist.ptr<T>(i);
+    for (int j = 0; j < dist.cols; j++) {
+      for (int c = 0; c < dist.channels(); c++) {
+        num = 0.0;
+        ptrk = kernel.ptr<T>(0);
+        ptrp = padding.ptr<T>(i + paddingSize, j);
+        for (int ki = 0; ki < kernel.cols; ki++) { // iterate gaussian kernel, horizon direction
+          num += (*ptrk++) * ptrp[c];
+          ptrp += padding.channels();
+        }
+        *ptrd++ = num;
+      }
+    }
+  }
+}
+
+template<typename T>
+void sobelFilter3x3(const cv::Mat& src, cv::Mat& G, cv::Mat& Gx, cv::Mat& Gy) {
+  G.create(src.rows, src.cols, src.type());
+  Gx.create(src.rows, src.cols, src.type());
+  Gy.create(src.rows, src.cols, src.type());
+  cv::Mat sobel1 = (cv::Mat_<double>(1, 3) << 1, 2, 1);
+  cv::Mat sobel2 = (cv::Mat_<double>(1, 3) << 1, 0, -1);
+  
+  // compute Gx
+  corre1D<T>(src, sobel2, Gx);
+  cv::transpose(Gx, Gx);
+  corre1D<T>(Gx, sobel1, Gx);
+  cv::transpose(Gx, Gx);
+
+  // compute Gy
+  corre1D<T>(src, sobel1, Gy);
+  cv::transpose(Gy, Gy);
+  corre1D<T>(Gy, sobel2, Gy);
+  cv::transpose(Gy, Gy);
+
+  // compute G = sqrt(Gx^2 + Gy^2)
+  elementWiseOperator<T>(Gx, Gy, G, [](T x, T y) {return sqrt(x*x + y*y); });
+}
+
+template<typename T>
+void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist, double sigmaS, double scale) {
+  dist.create(edgeMap.rows, edgeMap.cols, edgeMap.type());
+  // Perfom IBW on lmninance channel only
+  cv::Mat srcL;
+  BGR2L(src, srcL);
+
+  cv::Mat G, Gx, Gy;
+  sobelFilter3x3<T>(srcL, G, Gx, Gy);
+  Gx = Gx * scale;
+  Gy = Gy * scale;
+  gaussianFilter2D<T>(Gx, 7, sigmaS, Gx);
+  gaussianFilter2D<T>(Gy, 7, sigmaS, Gy);
+
+  // inverse warping with bilinear interpolation
+  T *ptrGx, *ptrGy, *ptrd;
+  const T *ptre;
+  T x0, x1, y0, y1;
+  T posX, posY;
+   for (int i = 0; i < dist.rows; i++) {
+    ptrd = dist.ptr<T>(i);
+    ptrGx = Gx.ptr<T>(i);
+    ptrGy = Gy.ptr<T>(i);
+    ptre = edgeMap.ptr<T>(i);
+    for (int j = 0; j < dist.cols; j++) {
+      if(ptrGx[0]==0.0 && ptrGy[0]==0.0)
+        *ptrd++ = *ptre++;
+      else if (j + ptrGx[0] < 0 || j + 1 + ptrGx[0] > dist.cols)
+        *ptrd++ = *ptre++;
+      else if (i + ptrGy[0] < 0 || i + 1 + ptrGy[0] > dist.rows)
+        *ptrd++ = *ptre++;
+      else {
+        posX = j + floor(ptrGx[0]);
+        posY = i + floor(ptrGy[0]);
+        x1 = ptrGx[0] - floor(ptrGx[0]); x0 = floor(ptrGx[0]) + 1 - ptrGx[0];
+        y1 = ptrGy[0] - floor(ptrGy[0]); y0 = floor(ptrGy[0]) + 1 - ptrGy[0];
+        *ptrd++ = y0 * (x0 * (*edgeMap.ptr<T>(posY, posX)) + x1 * (*edgeMap.ptr<T>(posY, posX + 1))) 
+                + y1 * (x0 * (*edgeMap.ptr<T>(posY + 1, posX)) + x1 * (*edgeMap.ptr<T>(posY + 1, posX + 1)));
+        ptre++;
+      }
+      ptrGx++; ptrGy++;
+    }
+  }
+}
+
 
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
 template<typename T>
@@ -310,6 +407,7 @@ void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double s
       }
     }
   }
+
 }
 
 namespace {

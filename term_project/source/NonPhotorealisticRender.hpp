@@ -90,12 +90,16 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
 }
 
 void NonPhotorealisticRender::run(){
-	cv::Mat dist;
+	cv::Mat srcFiltered, edge, dist;
 	cv::Mat src1;
-	BGR2L(original, src1);
-	piecewiseLinearBilateralFilter<double>(src1, 35, 1.0, 1.0, 10, dist);
-	//DoG_EdgeDetection<double>(original, dist, 0.98, 2.0, 1.0);
-	cv::imshow("Edge", dist);
+	//BGR2L(original, src1);
+	//piecewiseLinearBilateralFilter<double>(src1, 35, 1.0, 1.0, 10, dist);
+  bilateralFilter<double>(original, 3, 3, 4.25, srcFiltered);
+	DoG_EdgeDetection<double>(srcFiltered, edge, 0.98, 2.0, 1.0);
+  imageBasedWarping<double>(original, edge, dist, 1.5, 2.7);
+  cv::imshow("srcFiltered", srcFiltered);
+  cv::imshow("Edge0", edge);
+	cv::imshow("Edge1", dist);
 	cv::waitKey(0);
 }
 
