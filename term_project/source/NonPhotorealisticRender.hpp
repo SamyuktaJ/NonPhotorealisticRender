@@ -90,7 +90,12 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
 }
 
 void NonPhotorealisticRender::run(){
-
+	cv::Mat dist;
+	BGR2LAB(original, dist);
+	cv::imshow("Lab", dist);
+	LAB2BGR(dist, dist);
+	cv::imshow("RGB", dist);
+	cv::waitKey(0);
 }
 
 }
