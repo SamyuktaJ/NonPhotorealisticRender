@@ -187,60 +187,6 @@ void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
   kernel = kernel / sum;
 }
 
-// f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
-template<typename T>
-void GaussianFilter(const cv::Mat& src, cv::Mat& dist, int windowSize, double sigmaS){
-  dist = cv::Mat(src.rows, src.cols, src.type());
-  int step = windowSize / 2;
-  cv::Mat srcPad;
-  paddingMirror<T>(src, step, srcPad);
-
-  // generate normalized 1-D Gaussian kernal
-  std::vector<T> weight;
-  for (int i = 0; i <= step; ++i)
-    weight.push_back(exp(-0.5*(i*i / (sigmaS * sigmaS))));
-  T weightSum = 0.0;
-  for (int wy = -step; wy <= step; ++wy) {
-    int wy_tmp = (wy >= 0) ? wy : -wy;
-    weightSum += (weight[wy_tmp]);
-  }
-  for (int i = 0; i <= step; ++i)
-    weight[i] = weight[i] / weightSum;
-
-  // compute 2-D Gaussian filter with 1-D separatable Gaussian filter, O(n)
-  cv::Mat GaussianTmp(srcPad.rows, srcPad.cols, srcPad.type());
-  T *outPix;
-  for (int i = 0; i < srcPad.rows; ++i) {
-    outPix = GaussianTmp.ptr<T>(i);
-    for (int j = 0; j < srcPad.cols; ++j) {
-      for (int r = 0; r < srcPad.channels(); ++r) {
-        outPix[0] = 0.0;
-        if (j >= step && j < (srcPad.cols - step)) {
-          for (int wx = -step; wx <= step; ++wx) {
-            int wx_tmp = (wx >= 0) ? wx : -wx;
-            outPix[0] += srcPad.ptr<T>(i, j + wx)[r] * weight[wx_tmp];
-          }
-        }
-        outPix++;
-      }
-    }
-  }
-
-  for (int i = 0; i < dist.rows; ++i) {
-    outPix = dist.ptr<T>(i);
-    for (int j = 0; j < dist.cols; ++j) {
-      for (int r = 0; r < srcPad.channels(); ++r) {
-        outPix[0] = 0.0;
-        for (int wy = -step; wy <= step; ++wy) {
-          int wy_tmp = (wy >= 0) ? wy : -wy;
-          outPix[0] += GaussianTmp.ptr<T>(i + step + wy, j + step)[r] * weight[wy_tmp];
-        }
-        outPix++;
-      }
-    }
-  }
-}
-
 // L range from 0 to 100
 void BGR2L(const cv::Mat& src, cv::Mat& dist) {
 	cv::Mat srcLab;
@@ -259,8 +205,8 @@ void DoG_EdgeDetection(const cv::Mat& src, cv::Mat& dist, double tau, double sig
 
 	// generate 2 Gaussian filtered image
 	cv::Mat S_sigmaE, S_sigmaR;
-	GaussianFilter<T>(srcL, S_sigmaE, 7, sigmaE);
-	GaussianFilter<T>(srcL, S_sigmaR, 7, sigmaE*sqrt(1.6));
+	gaussianFilter2D<T>(srcL, 27, sigmaE, S_sigmaE);
+	gaussianFilter2D<T>(srcL, 27, sigmaE*sqrt(1.6), S_sigmaE);
 
 	// DoG
 	T *outPix, *sigmaE_Pix, *sigmaR_Pix;

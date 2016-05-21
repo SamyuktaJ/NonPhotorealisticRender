@@ -91,7 +91,10 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
 
 void NonPhotorealisticRender::run(){
 	cv::Mat dist;
-	DoG_EdgeDetection<double>(original, dist, 0.98, 2.0, 1.0);
+	cv::Mat src1;
+	BGR2L(original, src1);
+	piecewiseLinearBilateralFilter<double>(src1, 35, 1.0, 1.0, 10, dist);
+	//DoG_EdgeDetection<double>(original, dist, 0.98, 2.0, 1.0);
 	cv::imshow("Edge", dist);
 	cv::waitKey(0);
 }

@@ -1,5 +1,5 @@
 # Non Photorealistic Render Configuration
-originalImage,../image/lake.png
+originalImage,../../image/lake.png
 # bilateral, {windowSize}, {sigmaS}, {sigmaR}
 bilateral,35,100,0.8
 # iteration, {quantize}, {edge}
