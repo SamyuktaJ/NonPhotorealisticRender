@@ -170,6 +170,25 @@ void paddingMirror(const cv::Mat& src, int paddingSize, cv::Mat& dist) {
 
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
 template<typename T>
+void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
+  kernel.create(height, width, CV_64FC3);
+  int heightRef = height / 2;
+  int widthRef = width / 2;
+  T* ptrk;
+  T sum = 0.0;
+  for (int i = 0; i < height; i++){ // construct 2D gaussian kernel
+    ptrk = kernel.ptr<T>(i);
+    for (int j = 0; j < width; j++){
+      *ptrk = exp(-(pow(i - heightRef, 2) + pow(j - widthRef, 2)) / (2 * pow(sigmaS, 2)));
+      sum += *ptrk;
+      ptrk++;
+    }
+  }
+  kernel = kernel / sum;
+}
+
+// f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
+template<typename T>
 void GaussianFilter(const cv::Mat& src, cv::Mat& dist, int windowSize, double sigmaS){
   dist = cv::Mat(src.rows, src.cols, src.type());
   int step = windowSize / 2;
@@ -229,7 +248,7 @@ void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double s
   int paddingSize = windowSize / 2;
   cv::Mat gKernel;
   cv::Mat padding;
-  getGaussianKernel(windowSize, windowSize, sigmaS, gKernel);
+  getGaussianKernel<T>(windowSize, windowSize, sigmaS, gKernel);
   paddingWithReplicate(src, paddingSize, padding);
   T* ptrd; // point to dist image
   const T* ptrgk; // point to gaussian kernel
