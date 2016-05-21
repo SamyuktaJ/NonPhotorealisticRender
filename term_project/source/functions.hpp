@@ -325,7 +325,6 @@ void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist
   }
 }
 
-
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
 template<typename T>
 void gaussianFilter2D(const cv::Mat& src, int windowSize, double sigmaS, cv::Mat& dist){
@@ -434,6 +433,21 @@ void luminancePseudoQuantization(const cv::Mat& src, int bins, double bottom, do
     leftover = modf(x*bins, &intpart);
     intpart += 0.5*tanh(s*(leftover-0.5));
     return intpart/bins;
+  });
+}
+
+// Exact quantization, there are bins of value
+template<typename T>
+void luminanceQuantization(const cv::Mat& src, int bins, cv::Mat& dist){
+  T minIntensity = 0.0;
+  T maxIntensity = 0.0;
+  cv::minMaxIdx(src, &minIntensity, &maxIntensity);
+
+  // min, min+step, ..., max, total # of bins is bins
+  T step = (maxIntensity - minIntensity) / (bins - 1);
+
+  elementWiseOperator<T>(src, dist, [=](T x){
+    return round((x - minIntensity) / step)*step + minIntensity;
   });
 }
 
