@@ -79,34 +79,34 @@ void writeImage(const std::string& filename, const cv::Mat& image){
 // change color space, note that opencv use BGR
 // BGR->LAB
 void BGR2LAB(const cv::Mat& src, cv::Mat& dist){
-	// convert to single-precision floating point (openCV constraint)
-	cv::Mat src32 = cv::Mat(src.rows, src.cols, CV_32FC3);
-	src.convertTo(src32, CV_32FC3);
-	cv::Mat dist32 = cv::Mat(src.rows, src.cols, CV_32FC3);	
-	cv::cvtColor(src32, dist32, CV_BGR2Lab);
-	dist = cv::Mat(src.rows, src.cols, src.type());
-	dist32.convertTo(dist, CV_64FC3);
+  // convert to single-precision floating point (openCV constraint)
+  cv::Mat src32 = cv::Mat(src.rows, src.cols, CV_32FC3);
+  src.convertTo(src32, CV_32FC3);
+  cv::Mat dist32 = cv::Mat(src.rows, src.cols, CV_32FC3);	
+  cv::cvtColor(src32, dist32, CV_BGR2Lab);
+  dist = cv::Mat(src.rows, src.cols, src.type());
+  dist32.convertTo(dist, CV_64FC3);
 }
 
 // LAB->BGR
 void LAB2BGR(const cv::Mat& src, cv::Mat& dist){
-	// convert to single-precision floating point (openCV constraint)
-	cv::Mat src32 = cv::Mat(src.rows, src.cols, CV_32FC3);
-	src.convertTo(src32, CV_32FC3);
-	cv::Mat dist32 = cv::Mat(src.rows, src.cols, CV_32FC3);
-	cv::cvtColor(src32, dist32, CV_Lab2BGR);
-	dist = cv::Mat(src.rows, src.cols, src.type());
-	dist32.convertTo(dist, CV_64FC3);
+  // convert to single-precision floating point (openCV constraint)
+  cv::Mat src32 = cv::Mat(src.rows, src.cols, CV_32FC3);
+  src.convertTo(src32, CV_32FC3);
+  cv::Mat dist32 = cv::Mat(src.rows, src.cols, CV_32FC3);
+  cv::cvtColor(src32, dist32, CV_Lab2BGR);
+  dist = cv::Mat(src.rows, src.cols, src.type());
+  dist32.convertTo(dist, CV_64FC3);
 }
 
 // BGR->YUV
 void BGR2YUV(const cv::Mat& src, cv::Mat& dist){
-	// TODO
+  // TODO
 }
 
 // YUV->BGR
 void YUV2BGR(const cv::Mat& src, cv::Mat& dist){
-	// TODO
+  // TODO
 }
 
 // padding image with boundary
@@ -134,109 +134,92 @@ void paddingWithReplicate(const cv::Mat& src, int paddingSize, cv::Mat& dist){
   }
 }
 
+// padding image with mirror
+template<typename T>
 void paddingMirror(const cv::Mat& src, int paddingSize, cv::Mat& dist) {
-	dist = cv::Mat(src.rows + paddingSize * 2, src.cols + paddingSize * 2, src.type());
-	double *destPix;
-	for (int i = 0; i < dist.rows; ++i) {
-		destPix = dist.ptr<double>(i);
-		for (int j = 0; j < dist.cols; ++j) {
-			for (int r = 0; r < src.channels(); ++r) {
-				if (i < paddingSize && j < paddingSize)
-					destPix[r] = src.ptr<double>(paddingSize - i - 1, paddingSize - j - 1)[r];
-				else if (i < paddingSize && j >= (src.cols + paddingSize))
-					destPix[r] = src.ptr<double>(paddingSize - i - 1, 2 * src.cols + paddingSize - j - 1)[r];
-				else if (j < paddingSize && i >= (src.rows + paddingSize))
-					destPix[r] = src.ptr<double>(2 * src.rows - i - 1 + paddingSize, paddingSize - j - 1)[r];
-				else if (j >= (src.cols + paddingSize) && i >= (src.rows + paddingSize))
-					destPix[r] = src.ptr<double>(2 * src.rows - i - 1 + paddingSize, 2 * src.cols + paddingSize - j - 1)[r];
-				else if (j >= paddingSize && i < paddingSize)
-					destPix[r] = src.ptr<double>(paddingSize - i - 1, j - paddingSize)[r];
-				else if (j < paddingSize && i >= paddingSize)
-					destPix[r] = src.ptr<double>(i - paddingSize, paddingSize - j - 1)[r];
-				else if (j >= (src.cols + paddingSize) && i >= paddingSize)
-					destPix[r] = src.ptr<double>(i - paddingSize, 2 * src.cols + paddingSize - j - 1)[r];
-				else if (j >= paddingSize && i >= (src.rows + paddingSize))
-					destPix[r] = src.ptr<double>(2 * src.rows - i - 1 + paddingSize, j - paddingSize)[r];
-				else
-					destPix[r] = src.ptr<double>(i - paddingSize, j - paddingSize)[r];
-			}
-			destPix += src.channels();
-		}
-	}
-	
+  dist = cv::Mat(src.rows + paddingSize * 2, src.cols + paddingSize * 2, src.type());
+  T *destPix;
+  for (int i = 0; i < dist.rows; ++i) {
+    destPix = dist.ptr<T>(i);
+    for (int j = 0; j < dist.cols; ++j) {
+      for (int r = 0; r < src.channels(); ++r) {
+        if (i < paddingSize && j < paddingSize)
+          destPix[r] = src.ptr<T>(paddingSize - i - 1, paddingSize - j - 1)[r];
+        else if (i < paddingSize && j >= (src.cols + paddingSize))
+          destPix[r] = src.ptr<T>(paddingSize - i - 1, 2 * src.cols + paddingSize - j - 1)[r];
+        else if (j < paddingSize && i >= (src.rows + paddingSize))
+          destPix[r] = src.ptr<T>(2 * src.rows - i - 1 + paddingSize, paddingSize - j - 1)[r];
+        else if (j >= (src.cols + paddingSize) && i >= (src.rows + paddingSize))
+          destPix[r] = src.ptr<T>(2 * src.rows - i - 1 + paddingSize, 2 * src.cols + paddingSize - j - 1)[r];
+        else if (j >= paddingSize && i < paddingSize)
+          destPix[r] = src.ptr<T>(paddingSize - i - 1, j - paddingSize)[r];
+        else if (j < paddingSize && i >= paddingSize)
+          destPix[r] = src.ptr<T>(i - paddingSize, paddingSize - j - 1)[r];
+        else if (j >= (src.cols + paddingSize) && i >= paddingSize)
+          destPix[r] = src.ptr<T>(i - paddingSize, 2 * src.cols + paddingSize - j - 1)[r];
+        else if (j >= paddingSize && i >= (src.rows + paddingSize))
+          destPix[r] = src.ptr<T>(2 * src.rows - i - 1 + paddingSize, j - paddingSize)[r];
+        else
+          destPix[r] = src.ptr<T>(i - paddingSize, j - paddingSize)[r];
+      }
+      destPix += src.channels();
+    }
+  }
+  
 }
 
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
-<<<<<<< HEAD
 template<typename T>
-void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
-  kernel.create(height, width, CV_64FC3);
-  int heightRef = height / 2;
-  int widthRef = width / 2;
-  T* ptrk;
-  T sum = 0.0;
-  for (int i = 0; i < height; i++){ // construct 2D gaussian kernel
-    ptrk = kernel.ptr<T>(i);
-    for (int j = 0; j < width; j++){
-      *ptrk = exp(-(pow(i - heightRef, 2) + pow(j - widthRef, 2)) / (2 * pow(sigmaS, 2)));
-      sum += *ptrk;
-      ptrk++;
+void GaussianFilter(const cv::Mat& src, cv::Mat& dist, int windowSize, double sigmaS){
+  dist = cv::Mat(src.rows, src.cols, src.type());
+  int step = windowSize / 2;
+  cv::Mat srcPad;
+  paddingMirror<T>(src, step, srcPad);
+
+  // generate normalized 1-D Gaussian kernal
+  std::vector<T> weight;
+  for (int i = 0; i <= step; ++i)
+    weight.push_back(exp(-0.5*(i*i / (sigmaS * sigmaS))));
+  T weightSum = 0.0;
+  for (int wy = -step; wy <= step; ++wy) {
+    int wy_tmp = (wy >= 0) ? wy : -wy;
+    weightSum += (weight[wy_tmp]);
+  }
+  for (int i = 0; i <= step; i++)
+    weight[i] = weight[i] / weightSum;
+
+  // compute 2-D Gaussian filter with 1-D separatable Gaussian filter, O(n)
+  cv::Mat GaussianTmp(srcPad.rows, srcPad.cols, srcPad.type());
+  T *outPix;
+  for (int i = 0; i < srcPad.rows; ++i) {
+    outPix = GaussianTmp.ptr<T>(i);
+    for (int j = 0; j < srcPad.cols; ++j) {
+      for (int r = 0; r < srcPad.channels(); ++r) {
+        outPix[0] = 0.0;
+        if (j >= step && j < (srcPad.cols - step)) {
+          for (int wx = -step; wx <= step; ++wx) {
+            int wx_tmp = (wx >= 0) ? wx : -wx;
+            outPix[0] += srcPad.ptr<T>(i, j + wx)[r] * weight[wx_tmp];
+          }
+        }
+        outPix++;
+      }
     }
   }
-  kernel = kernel / sum;
-=======
-void GaussianFilter(const cv::Mat& src, cv::Mat& dist, int windowSize, double sigmaS){
-	dist = cv::Mat(src.rows, src.cols, src.type());
-	int step = windowSize / 2;
-	cv::Mat srcPad;
-	paddingMirror(src, step, srcPad);
 
-	// generate normalized 1-D Gaussian kernal
-	std::vector<double> weight;
-	for (int i = 0; i <= step; ++i)
-		weight.push_back(exp(-0.5*(i*i / (sigmaS * sigmaS))));
-	double weightSum = 0.0;
-	for (int wy = -step; wy <= step; ++wy) {
-		int wy_tmp = (wy >= 0) ? wy : -wy;
-		weightSum += (weight[wy_tmp]);
-	}
-	for (int i = 0; i <= step; i++)
-		weight[i] = weight[i] / weightSum;
-
-	// compute 2-D Gaussian filter with 1-D separatable Gaussian filter, O(n)
-	cv::Mat GaussianTmp(srcPad.rows, srcPad.cols, srcPad.type());
-	double *outPix;
-	for (int i = 0; i < srcPad.rows; ++i) {
-		outPix = GaussianTmp.ptr<double>(i);
-		for (int j = 0; j < srcPad.cols; ++j) {
-			for (int r = 0; r < srcPad.channels(); ++r) {
-				outPix[0] = 0.0;
-				if (j >= step && j < (srcPad.cols - step)) {
-					for (int wx = -step; wx <= step; ++wx) {
-						int wx_tmp = (wx >= 0) ? wx : -wx;
-						outPix[0] += srcPad.ptr<double>(i, j + wx)[r] * weight[wx_tmp];
-					}
-				}
-				outPix++;
-			}
-		}
-	}
-
-	for (int i = 0; i < dist.rows; ++i) {
-		outPix = dist.ptr<double>(i);
-		for (int j = 0; j < dist.cols; ++j) {
-			for (int r = 0; r < srcPad.channels(); ++r) {
-				outPix[0] = 0.0;
-				for (int wy = -step; wy <= step; ++wy) {
-					int wy_tmp = (wy >= 0) ? wy : -wy;
-					outPix[0] += GaussianTmp.ptr<double>(i + step + wy, j + step)[r] * weight[wy_tmp];
-				}
-				outPix++;
-			}
-		}
-	}
-
->>>>>>> origin/master
+  for (int i = 0; i < dist.rows; ++i) {
+    outPix = dist.ptr<T>(i);
+    for (int j = 0; j < dist.cols; ++j) {
+      for (int r = 0; r < srcPad.channels(); ++r) {
+        outPix[0] = 0.0;
+        for (int wy = -step; wy <= step; ++wy) {
+          int wy_tmp = (wy >= 0) ? wy : -wy;
+          outPix[0] += GaussianTmp.ptr<T>(i + step + wy, j + step)[r] * weight[wy_tmp];
+        }
+        outPix++;
+      }
+    }
+  }
 }
 
 // bilateral filter
@@ -278,6 +261,7 @@ void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double s
 }
 
 // Fast bilateral filter, use segment to speed up
+template<typename T>
 void piecewiseLinearBilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, int segment, cv::Mat& dist){
   // TODO
 }

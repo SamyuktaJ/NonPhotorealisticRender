@@ -29,3 +29,5 @@ Thumbs.db
 *.o
 *.exe
 *.suo
+*.VC.db
+*.vs
