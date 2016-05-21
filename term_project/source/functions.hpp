@@ -329,46 +329,15 @@ void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
 template<typename T>
 void gaussianFilter2D(const cv::Mat& src, int windowSize, double sigmaS, cv::Mat& dist){
-  dist.create(src.rows, src.cols, src.type());
-  int paddingSize = windowSize / 2;
-  cv::Mat kernel, padding;
+  cv::Mat kernel;
   getGaussianKernel<T>(1, windowSize, sigmaS, kernel); // 1D gaussian kernel
-  paddingWithReplicate<T>(src, paddingSize, padding);
-  T* ptrk; // pointer to kernel
-  T* ptrd; // pointer to dist
-  const T* ptrp;
-  T num;
-  for (int i = 0; i < dist.rows; i++){
-    ptrd = dist.ptr<T>(i);
-    for (int j = 0; j < dist.cols; j++){
-      for (int c = 0; c < dist.channels(); c++){
-        num = 0.0;
-        ptrk = kernel.ptr<T>(0);
-        ptrp = padding.ptr<T>(i + paddingSize, j);
-        for (int ki = 0; ki < windowSize; ki++){ // iterate gaussian kernel, horizon direction
-          num += (*ptrk++) * ptrp[c];
-          ptrp += padding.channels();
-        }
-        *ptrd++ = num;
-      }
-    }
-  }
-  paddingWithReplicate<T>(dist, paddingSize, padding);
-  for (int i = 0; i < dist.rows; i++){
-    ptrd = dist.ptr<T>(i);
-    for (int j = 0; j < dist.cols; j++){
-      for (int c = 0; c < dist.channels(); c++){
-        num = 0.0;
-        ptrk = kernel.ptr<T>(0);
-        for (int ki = 0; ki < windowSize; ki++){ // iterate gaussian kernel, vertical direction
-          ptrp = padding.ptr<T>(i + ki, j + paddingSize);
-          num += (*ptrk++) * ptrp[c];
-          ptrp += padding.channels();
-        }
-        *ptrd++ = num;
-      }
-    }
-  }
+
+  cv::Mat temp(src.rows, src.cols, src.type());
+  corre1D<T>(src, kernel, temp);
+  cv::transpose(temp, temp);
+  corre1D<T>(temp, kernel, temp);
+  cv::transpose(temp, temp);
+  dist = temp;
 }
 
 // bilateral filter
