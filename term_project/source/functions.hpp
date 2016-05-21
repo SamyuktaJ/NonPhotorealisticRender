@@ -246,7 +246,7 @@ void corre1D(const cv::Mat& src, const cv::Mat& kernel, cv::Mat& dist) {
         num = 0.0;
         ptrk = kernel.ptr<T>(0);
         ptrp = padding.ptr<T>(i + paddingSize, j);
-        for (int ki = 0; ki < kernel.cols; ki++) { // iterate gaussian kernel, horizon direction
+        for (int ki = 0; ki < kernel.cols; ki++) {
           num += (*ptrk++) * ptrp[c];
           ptrp += padding.channels();
         }
@@ -261,8 +261,8 @@ void sobelFilter3x3(const cv::Mat& src, cv::Mat& G, cv::Mat& Gx, cv::Mat& Gy) {
   G.create(src.rows, src.cols, src.type());
   Gx.create(src.rows, src.cols, src.type());
   Gy.create(src.rows, src.cols, src.type());
-  cv::Mat sobel1 = (cv::Mat_<double>(1, 3) << 1, 2, 1);
-  cv::Mat sobel2 = (cv::Mat_<double>(1, 3) << 1, 0, -1);
+  cv::Mat sobel1 = (cv::Mat_<T>(1, 3) << 1, 2, 1);
+  cv::Mat sobel2 = (cv::Mat_<T>(1, 3) << 1, 0, -1);
   
   // compute Gx
   corre1D<T>(src, sobel2, Gx);
@@ -283,7 +283,7 @@ void sobelFilter3x3(const cv::Mat& src, cv::Mat& G, cv::Mat& Gx, cv::Mat& Gy) {
 template<typename T>
 void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist, double sigmaS, double scale) {
   dist.create(edgeMap.rows, edgeMap.cols, edgeMap.type());
-  // Perfom IBW on lmninance channel only
+  // Perform IBW on luminance channel only
   cv::Mat srcL;
   BGR2L(src, srcL);
 
@@ -410,29 +410,6 @@ void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double s
 
 }
 
-namespace {
-template<typename T>
-class funcexp{
-public:
-  funcexp(T s) : s(s){}
-  T operator()(T x){ return exp(-x*x / (2 * s*s)); }
-private:
-  T s;
-};
-template<typename T>
-class funciterpolation{
-public:
-  funciterpolation(T current, T step) : current(current), step(step){}
-  T operator()(T x, T y){
-    if (y > current - step && y < current + step){
-      return x * (step - abs(y - current)) / step;
-    }
-    return 0.0;
-  }
-private:
-  T current, step;
-};
-}
 // Fast bilateral filter, use segment to speed up
 template<typename T>
 void piecewiseLinearBilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, int segment, cv::Mat& dist){
@@ -448,18 +425,47 @@ void piecewiseLinearBilateralFilter(const cv::Mat& src, int windowSize, double s
   T maxIntensity = 0.0;
   cv::minMaxIdx(src, &minIntensity, &maxIntensity);
   T step = (maxIntensity - minIntensity) / segment;
-  funcexp<T> fexp(sigmaR);
   for (int i = 0; i <= segment; i++){ // all intensity segment
     currentIntensity = minIntensity + i*step; // i
-    elementWiseOperator<T>(src - currentIntensity, intensity_exp_range, fexp); // evaluate gr at each pixel, G = g_sigma_r(I - i)
+    elementWiseOperator<T>(src - currentIntensity, intensity_exp_range, [=](T x){return exp(-x*x / (2 * sigmaR*sigmaR)); }); // evaluate gr at each pixel, G = g_sigma_r(I - i)
     gaussianFilter2D<T>(intensity_exp_range, windowSize, sigmaS, normalization_factor); // normalization factor, K = G conv with gaussian kernel
     elementWiseOperator<T>(intensity_exp_range, src, H, [](T x, T y){return x*y; }); // compute H for each pixel, H = G x I (element-wise)
     gaussianFilter2D<T>(H, windowSize, sigmaS, H_gaussian); // H* = H conv with gaussian kernel
     elementWiseOperator<T>(H_gaussian, normalization_factor, J, [](T x, T y){return x / y; }); // normalize, H = H* / K (element-wise)
-    elementWiseOperator<T>(J, src, J, funciterpolation<T>(currentIntensity, step)); // InterpolationWeight
+    elementWiseOperator<T>(J, src, J, [=](T x, T y){
+      if (y > currentIntensity - step && y <= currentIntensity + step){
+        return x * (step - abs(y - currentIntensity)) / step;
+      }
+      return 0.0;
+    }); // InterpolationWeight
     temp = temp + J; // InterpolationWeight
   }
   dist = temp;
+}
+
+template<typename T>
+void luminancePseudoQuantization(const cv::Mat& src, int bins, double bottom, double top, cv::Mat& dist){
+  cv::Mat G, Gx, Gy;
+  sobelFilter3x3<T>(src, G, Gx, Gy);
+
+  // norm to [0,1]
+  T minIntensity = 0.0;
+  T maxIntensity = 0.0;
+  cv::minMaxIdx(G, &minIntensity, &maxIntensity);
+  elementWiseOperator<T>(G, G, [=](T x){return (x - minIntensity) / (maxIntensity - minIntensity); });
+  cv::minMaxIdx(G, &minIntensity, &maxIntensity);
+
+  // scale to [bottom,top]
+  elementWiseOperator<T>(G, G, [=](T x){return x * (top - bottom); });
+  elementWiseOperator<T>(G, G, [=](T x){return x + bottom; });
+
+  // Pseudo Quantization
+  elementWiseOperator<T>(src, G, dist, [=](T x, T s){
+    T intpart, leftover;
+    leftover = modf(x*bins, &intpart);
+    intpart += 0.5*tanh(s*(leftover-0.5));
+    return intpart/bins;
+  });
 }
 
 }
