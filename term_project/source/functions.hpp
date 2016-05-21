@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <math.h>
 
 namespace cp{
 
@@ -101,9 +102,51 @@ void paddingWithReplicate(const cv::Mat& src, int paddingSize, cv::Mat& dist){
   // TODO
 }
 
+void paddingMirror(const cv::Mat& src, int paddingSize, cv::Mat& dist) {
+	dist = cv::Mat(src.rows + paddingSize * 2, src.cols + paddingSize * 2, src.type());
+	double *destPix;
+	for (int i = 0; i < dist.rows; i++) {
+		destPix = dist.ptr<double>(i);
+		for (int j = 0; j < dist.cols; j++) {
+			for (int r = 0; r < src.channels(); r++) {
+				if (i < paddingSize && j < paddingSize)
+					destPix[r] = src.ptr<double>(paddingSize - i - 1, paddingSize - j - 1)[r];
+				else if (i < paddingSize && j >= (src.cols + paddingSize))
+					destPix[r] = src.ptr<double>(paddingSize - i - 1, 2 * src.cols + paddingSize - j - 1)[r];
+				else if (j < paddingSize && i >= (src.rows + paddingSize))
+					destPix[r] = src.ptr<double>(2 * src.rows - i - 1 + paddingSize, paddingSize - j - 1)[r];
+				else if (j >= (src.cols + paddingSize) && i >= (src.rows + paddingSize))
+					destPix[r] = src.ptr<double>(2 * src.rows - i - 1 + paddingSize, 2 * src.cols + paddingSize - j - 1)[r];
+				else if (j >= paddingSize && i < paddingSize)
+					destPix[r] = src.ptr<double>(paddingSize - i - 1, j - paddingSize)[r];
+				else if (j < paddingSize && i >= paddingSize)
+					destPix[r] = src.ptr<double>(i - paddingSize, paddingSize - j - 1)[r];
+				else if (j >= (src.cols + paddingSize) && i >= paddingSize)
+					destPix[r] = src.ptr<double>(i - paddingSize, 2 * src.cols + paddingSize - j - 1)[r];
+				else if (j >= paddingSize && i >= (src.rows + paddingSize))
+					destPix[r] = src.ptr<double>(2 * src.rows - i - 1 + paddingSize, j - paddingSize)[r];
+				else
+					destPix[r] = src.ptr<double>(i - paddingSize, j - paddingSize)[r];
+			}
+			destPix += src.channels();
+		}
+	}
+	
+}
+
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
-void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
-  // TODO
+void GaussianFilter(const cv::Mat& src, cv::Mat& dist, int windowSize, double sigmaS){
+	int step = windowSize / 2;
+	std::vector<double> weight;
+	for (int i = 0; i <= step; i++)
+		weight.push_back(exp(-0.5*(i*i / (sigmaS * sigmaS))));
+	double weightSum = 0.0;
+	for (int wy = -step; wy <= step; wy++) {
+		int wy_tmp = (wy >= 0) ? wy : -wy;
+		weightSum += (weight[wy_tmp]);
+	}
+	for (int i = 0; i <= step; i++)
+		weight[i] = weight[i] / weightSum;
 }
 
 // bilateral filter

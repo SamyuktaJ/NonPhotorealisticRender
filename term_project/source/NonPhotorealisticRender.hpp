@@ -89,8 +89,10 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
   std::cout << "End parsing config file.\n" << std::endl;
 }
 
-void NonPhotorealisticRender::run(){
 
+
+
+void NonPhotorealisticRender::run(){
 }
 
 }
