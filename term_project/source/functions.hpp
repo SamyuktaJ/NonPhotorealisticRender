@@ -97,18 +97,85 @@ void YUV2BGR(const cv::Mat& src, cv::Mat& dist){
 }
 
 // padding image with boundary
+template<typename T>
 void paddingWithReplicate(const cv::Mat& src, int paddingSize, cv::Mat& dist){
-  // TODO
+  dist.create(src.rows + 2 * paddingSize, src.cols + 2 * paddingSize, src.type());
+  const T* ptrs;
+  T* ptrd;
+  for (int i = 0; i < dist.rows; i++){
+    ptrd = dist.ptr<T>(i);
+    // point to source Mat
+    if (i - paddingSize < 0) { ptrs = src.ptr<T>(0); }
+    else if (i - paddingSize >= src.rows) { ptrs = src.ptr<T>(src.rows - 1); }
+    else { ptrs = src.ptr<T>(i - paddingSize); }
+
+    for (int j = 0; j < dist.cols; j++){
+      for (int c = 0; c < dist.channels(); c++){
+        ptrd[c] = ptrs[c];
+      }
+      ptrd += dist.channels();
+      if (j - paddingSize >= 0 && j - paddingSize < src.cols-1){
+        ptrs += src.channels();
+      }
+    }
+  }
 }
 
 // f(|x-y|) = exp(-|x-y|^2 / (2*sigma_s))
+template<typename T>
 void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
-  // TODO
+  kernel.create(height, width, CV_64FC3);
+  int heightRef = height / 2;
+  int widthRef = width / 2;
+  T* ptrk;
+  T sum = 0.0;
+  for (int i = 0; i < height; i++){ // construct 2D gaussian kernel
+    ptrk = kernel.ptr<T>(i);
+    for (int j = 0; j < width; j++){
+      *ptrk = exp(-(pow(i - heightRef, 2) + pow(j - widthRef, 2)) / (2 * pow(sigmaS, 2)));
+      sum += *ptrk;
+      ptrk++;
+    }
+  }
+  kernel = kernel / sum;
 }
 
 // bilateral filter
+template<typename T>
 void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, cv::Mat& dist){
-  // TODO
+  dist.create(src.rows, src.cols, src.type());
+  int paddingSize = windowSize / 2;
+  cv::Mat gKernel;
+  cv::Mat padding;
+  getGaussianKernel(windowSize, windowSize, sigmaS, gKernel);
+  paddingWithReplicate(src, paddingSize, padding);
+  T* ptrd; // point to dist image
+  const T* ptrgk; // point to gaussian kernel
+  const T* ptrp; // point to padding image
+  const T* ptrpr; // point to center point
+  T sum, norm, mul;
+  for (int i = 0; i < dist.rows; i++){
+    ptrd = dist.ptr<T>(i);
+    for (int j = 0; j < dist.cols; j++){
+      for (int c = 0; c < dist.channels(); c++){
+        sum = 0.0;
+        norm = 0.0;
+        ptrpr = padding.ptr<T>(i + paddingSize, j + paddingSize);
+        for (int ki = 0; ki < windowSize; ki++){
+          ptrp = padding.ptr<T>(i + ki, j);
+          ptrgk = gKernel.ptr<T>(ki);
+          for (int kj = 0; kj < windowSize; kj++){
+            mul = (*ptrgk) * exp(-(pow(ptrp[c] - ptrpr[c], 2)) / (2 * pow(sigmaR, 2))); // update kernel to bilateral
+            sum += mul * ptrp[c];
+            norm += mul;
+            ptrgk++;
+            ptrp += padding.channels();
+          }
+        }
+        *ptrd++ = sum / norm; // normalize
+      }
+    }
+  }
 }
 
 // Fast bilateral filter, use segment to speed up
