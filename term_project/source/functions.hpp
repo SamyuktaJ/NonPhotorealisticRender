@@ -425,18 +425,19 @@ void luminancePseudoQuantization(const cv::Mat& src, int bins, double bottom, do
   T maxIntensity = 0.0;
   cv::minMaxIdx(G, &minIntensity, &maxIntensity);
   elementWiseOperator<T>(G, G, [=](T x){return (x - minIntensity) / (maxIntensity - minIntensity); });
-  cv::minMaxIdx(G, &minIntensity, &maxIntensity);
 
   // scale to [bottom,top]
   elementWiseOperator<T>(G, G, [=](T x){return x * (top - bottom); });
   elementWiseOperator<T>(G, G, [=](T x){return x + bottom; });
 
   // Pseudo Quantization
+  cv::minMaxIdx(src, &minIntensity, &maxIntensity);
+  // min, min+step, ..., max, total # of bins is bins
+  T step = (maxIntensity - minIntensity) / (bins - 1);
+
   elementWiseOperator<T>(src, G, dist, [=](T x, T s){
-    T intpart, leftover;
-    leftover = modf(x*bins, &intpart);
-    intpart += 0.5*tanh(s*(leftover-0.5));
-    return intpart/bins;
+    T q = round((x - minIntensity) / step)*step + minIntensity;
+    return q + 0.5*step*tanh(s*(x - q));
   });
 }
 
