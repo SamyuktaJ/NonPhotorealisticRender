@@ -168,6 +168,20 @@ void NonPhotorealisticRender::run(){
   cv::imshow("edge", edge);
   cv::imshow("edgeIBW", edgeIBW);
   cv::waitKey(0);
+
+  // merge image and edge
+  cv::Mat newL;
+  mergeImageAndEdge<double>(forEdge, edge, newL);
+
+  // merge 3 channels
+  cv::Mat dist;
+  newL.copyTo(mv[0]);
+  cv::merge(&mv[0], 3, dist);
+
+  // change color space to BGR
+  LAB2BGR(dist, dist);
+  cv::imshow("New image", dist);
+  cv::waitKey(0);
 }
 
 }
