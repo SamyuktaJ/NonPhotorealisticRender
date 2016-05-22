@@ -287,6 +287,12 @@ void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist
   
   cv::Mat G, Gx, Gy;
   sobelFilter3x3<T>(src, G, Gx, Gy);
+  double minGx, maxGx;
+  cv::minMaxLoc(Gx, &minGx, &maxGx);
+  double minGy, maxGy;
+  cv::minMaxLoc(Gy, &minGy, &maxGy);
+  Gx = Gx / maxGx;
+  Gy = Gy / maxGy;
   Gx = Gx * scale;
   Gy = Gy * scale;
   gaussianFilter2D<T>(Gx, windowSize, sigmaS, Gx);
