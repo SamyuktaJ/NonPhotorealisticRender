@@ -342,21 +342,21 @@ void gaussianFilter2D(const cv::Mat& src, int windowSize, double sigmaS, cv::Mat
 // bilateral filter
 template<typename T>
 void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double sigmaR, cv::Mat& dist){
-  dist.create(src.rows, src.cols, src.type());
+  cv::Mat temp(src.rows, src.cols, src.depth(), 0.0);
   int paddingSize = windowSize / 2;
   cv::Mat gKernel;
   cv::Mat padding;
   getGaussianKernel<T>(windowSize, windowSize, sigmaS, gKernel);
   paddingWithReplicate<T>(src, paddingSize, padding);
-  T* ptrd; // point to dist image
+  T* ptrd; // point to temp image
   const T* ptrgk; // point to gaussian kernel
   const T* ptrp; // point to padding image
   const T* ptrpr; // point to center point
   T sum, norm, mul;
-  for (int i = 0; i < dist.rows; ++i){
-    ptrd = dist.ptr<T>(i);
-    for (int j = 0; j < dist.cols; ++j){
-      for (int c = 0; c < dist.channels(); ++c){
+  for (int i = 0; i < temp.rows; ++i){
+    ptrd = temp.ptr<T>(i);
+    for (int j = 0; j < temp.cols; ++j){
+      for (int c = 0; c < temp.channels(); ++c){
         sum = 0.0;
         norm = 0.0;
         ptrpr = padding.ptr<T>(i + paddingSize, j + paddingSize);
@@ -375,7 +375,7 @@ void bilateralFilter(const cv::Mat& src, int windowSize, double sigmaS, double s
       }
     }
   }
-
+  dist = temp;
 }
 
 // Fast bilateral filter, use segment to speed up
