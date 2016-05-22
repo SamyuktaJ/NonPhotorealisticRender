@@ -37,6 +37,19 @@ private:
     double top;
   } quantization;
 
+  struct {
+    int windowSize;
+    double tau;
+    double sigmaE;
+    double phi;
+  } DoG;
+
+  struct {
+    double sigmaS;
+    double scale;
+    int windowSize;
+  } IBW;
+
   // help function
   const std::vector<std::string> Token(const std::string& in, const char delimeter){
     std::istringstream ss(in);
@@ -94,6 +107,17 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
             quantization.bottom = std::stod(splstr[2]);
             quantization.top = std::stod(splstr[3]);
           }
+          else if (splstr[0] == "DoG") {
+            DoG.windowSize = std::stoi(splstr[1]);
+            DoG.sigmaE = std::stod(splstr[2]);
+            DoG.tau = std::stod(splstr[3]);
+            DoG.phi = std::stod(splstr[4]);
+          }
+          else if (splstr[0] == "IBW") {
+            IBW.windowSize = std::stoi(splstr[1]);
+            IBW.sigmaS = std::stod(splstr[2]);
+            IBW.scale = std::stod(splstr[3]);
+          }
         }
       }
     }
@@ -108,7 +132,7 @@ void NonPhotorealisticRender::run(){
 
   // separate luminance
   std::vector<cv::Mat> mv;
-  cv::Mat luminance;
+  cv::Mat luminance, luminanceFiltered;
   cv::split(differentColorSpace, mv);
   mv[0].copyTo(luminance);
 
@@ -116,12 +140,16 @@ void NonPhotorealisticRender::run(){
   int times = std::max(iteration.quantize, iteration.edge);
   cv::Mat forQuan, forEdge;
   for (int i = 0; i < times; ++i){
-    piecewiseLinearBilateralFilter<double>(luminance, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminance);
+    if (i == 0)
+      piecewiseLinearBilateralFilter<double>(luminance, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminanceFiltered);
+    else
+      piecewiseLinearBilateralFilter<double>(luminanceFiltered, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminanceFiltered);
+
     if (i == iteration.quantize - 1){
-      luminance.copyTo(forQuan);
+      luminanceFiltered.copyTo(forQuan);
     }
     if (i == iteration.edge - 1){
-      luminance.copyTo(forEdge);
+      luminanceFiltered.copyTo(forEdge);
     }
   }
 
@@ -131,15 +159,17 @@ void NonPhotorealisticRender::run(){
   luminancePseudoQuantization<double>(forQuan, quantization.bins, quantization.bottom, quantization.top, quantize);
 
   // edge detection
-  cv::Mat edge;
-  //DoG_EdgeDetection<double>(forEdge, edge, 0.98, 2.0, 1.0);
+  cv::Mat edge, edgeIBW;
+  DoG_EdgeDetection<double>(forEdge, edge, DoG.tau, DoG.sigmaE, DoG.phi, DoG.windowSize);
 
   // image based warping
-  //imageBasedWarping<double>(original, edge, dist, 1.5, 2.7);
-  //cv::imshow("srcFiltered", srcFiltered);
-  //cv::imshow("Edge0", edge);
-  //cv::imshow("Edge1", dist);
-  //cv::waitKey(0);
+  imageBasedWarping<double>(luminance, edge, edgeIBW, IBW.sigmaS, IBW.scale, IBW.windowSize);
+
+  cv::imshow("luminance", luminance / 100.0);
+  cv::imshow("srcFiltered", forEdge / 100.0);
+  cv::imshow("edge", edge);
+  cv::imshow("edgeIBW", edgeIBW);
+  cv::waitKey(0);
 }
 
 }

@@ -197,16 +197,15 @@ void BGR2L(const cv::Mat& src, cv::Mat& dist) {
 }
 
 template<typename T>
-void DoG_EdgeDetection(const cv::Mat& src, cv::Mat& dist, double tau, double sigmaE, double phi) {
-  dist = cv::Mat(src.rows, src.cols, CV_64FC1);
+void DoG_EdgeDetection(const cv::Mat& src, cv::Mat& dist, double tau, double sigmaE, double phi, int windowSize) {
   // Perfom edge detection on lmninance channel
-  cv::Mat srcL;
-  BGR2L(src, srcL);
+  assert(src.channels() == 1);
+  dist = cv::Mat(src.rows, src.cols, CV_64FC1);  
 
   // generate 2 Gaussian filtered image
   cv::Mat S_sigmaE, S_sigmaR;
-  gaussianFilter2D<T>(srcL, 7, sigmaE, S_sigmaE);
-  gaussianFilter2D<T>(srcL, 7, sigmaE*sqrt(1.6), S_sigmaR);
+  gaussianFilter2D<T>(src, windowSize, sigmaE, S_sigmaE);
+  gaussianFilter2D<T>(src, windowSize, sigmaE*sqrt(1.6), S_sigmaR);
 
   // DoG
   T *outPix, *sigmaE_Pix, *sigmaR_Pix;
@@ -281,18 +280,17 @@ void sobelFilter3x3(const cv::Mat& src, cv::Mat& G, cv::Mat& Gx, cv::Mat& Gy) {
 }
 
 template<typename T>
-void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist, double sigmaS, double scale) {
-  dist.create(edgeMap.rows, edgeMap.cols, edgeMap.type());
+void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist, double sigmaS, double scale, int windowSize) {
   // Perform IBW on luminance channel only
-  cv::Mat srcL;
-  BGR2L(src, srcL);
-
+  assert(src.channels() == 1);
+  dist.create(edgeMap.rows, edgeMap.cols, edgeMap.type());
+  
   cv::Mat G, Gx, Gy;
-  sobelFilter3x3<T>(srcL, G, Gx, Gy);
+  sobelFilter3x3<T>(src, G, Gx, Gy);
   Gx = Gx * scale;
   Gy = Gy * scale;
-  gaussianFilter2D<T>(Gx, 7, sigmaS, Gx);
-  gaussianFilter2D<T>(Gy, 7, sigmaS, Gy);
+  gaussianFilter2D<T>(Gx, windowSize, sigmaS, Gx);
+  gaussianFilter2D<T>(Gy, windowSize, sigmaS, Gy);
 
   // inverse warping with bilinear interpolation
   T *ptrGx, *ptrGy, *ptrd;
@@ -314,8 +312,8 @@ void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist
       else {
         posX = j + floor(ptrGx[0]);
         posY = i + floor(ptrGy[0]);
-        x1 = ptrGx[0] - floor(ptrGx[0]); x0 = floor(ptrGx[0]) + 1 - ptrGx[0];
-        y1 = ptrGy[0] - floor(ptrGy[0]); y0 = floor(ptrGy[0]) + 1 - ptrGy[0];
+        x1 = ptrGx[0] - floor(ptrGx[0]); x0 = ceil(ptrGx[0]) - ptrGx[0];
+        y1 = ptrGy[0] - floor(ptrGy[0]); y0 = ceil(ptrGy[0]) - ptrGy[0];
         *ptrd++ = y0 * (x0 * (*edgeMap.ptr<T>(posY, posX)) + x1 * (*edgeMap.ptr<T>(posY, posX + 1))) 
                 + y1 * (x0 * (*edgeMap.ptr<T>(posY + 1, posX)) + x1 * (*edgeMap.ptr<T>(posY + 1, posX + 1)));
         ptre++;
