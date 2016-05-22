@@ -311,9 +311,9 @@ void imageBasedWarping(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist
     for (int j = 0; j < dist.cols; j++) {
       if(ptrGx[0]==0.0 && ptrGy[0]==0.0)
         *ptrd++ = *ptre++;
-      else if (j + ptrGx[0] < 0 || j + 1 + ptrGx[0] > dist.cols)
+      else if (j + ptrGx[0] < 0 || j + 1 + ptrGx[0] >= dist.cols)
         *ptrd++ = *ptre++;
-      else if (i + ptrGy[0] < 0 || i + 1 + ptrGy[0] > dist.rows)
+      else if (i + ptrGy[0] < 0 || i + 1 + ptrGy[0] >= dist.rows)
         *ptrd++ = *ptre++;
       else {
         posX = j + floor(ptrGx[0]);
