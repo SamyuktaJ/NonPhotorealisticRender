@@ -17,19 +17,25 @@ public:
 private:
   std::string imageFilename;
   cv::Mat original;
-  cv::Mat differentColorSpace;
 
   // parameter
   struct {
-    double windowSize;
+    int windowSize;
     double sigmaS;
     double sigmaR;
+    int segment;
   } bilateral;
 
   struct {
-    double quantize;
-    double edge;
+    int quantize;
+    int edge;
   } iteration;
+
+  struct {
+    int bins;
+    double bottom;
+    double top;
+  } quantization;
 
   // help function
   const std::vector<std::string> Token(const std::string& in, const char delimeter){
@@ -74,13 +80,19 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
             imageFilename = splstr.front();
           }
           else if (splstr[0] == "bilateral"){
-            bilateral.windowSize = std::stod(splstr[1]);
+            bilateral.windowSize = std::stoi(splstr[1]);
             bilateral.sigmaS = std::stod(splstr[2]);
             bilateral.sigmaR = std::stod(splstr[3]);
+            bilateral.segment = std::stoi(splstr[4]);
           }
           else if (splstr[0] == "iteration"){
-            iteration.quantize = std::stod(splstr[1]);
-            iteration.edge = std::stod(splstr[2]);
+            iteration.quantize = std::stoi(splstr[1]);
+            iteration.edge = std::stoi(splstr[2]);
+          }
+          else if (splstr[0] == "quantization"){
+            quantization.bins = std::stoi(splstr[1]);
+            quantization.bottom = std::stod(splstr[2]);
+            quantization.top = std::stod(splstr[3]);
           }
         }
       }
@@ -90,17 +102,44 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
 }
 
 void NonPhotorealisticRender::run(){
-	cv::Mat srcFiltered, edge, dist;
-	cv::Mat src1;
-	//BGR2L(original, src1);
-	//piecewiseLinearBilateralFilter<double>(src1, 35, 1.0, 1.0, 10, dist);
-  bilateralFilter<double>(original, 3, 3, 4.25, srcFiltered);
-	DoG_EdgeDetection<double>(srcFiltered, edge, 0.98, 2.0, 1.0);
-  imageBasedWarping<double>(original, edge, dist, 1.5, 2.7);
-  cv::imshow("srcFiltered", srcFiltered);
-  cv::imshow("Edge0", edge);
-	cv::imshow("Edge1", dist);
-	cv::waitKey(0);
+  // change color space
+  cv::Mat differentColorSpace;
+  BGR2LAB(original, differentColorSpace);
+
+  // separate luminance
+  std::vector<cv::Mat> mv;
+  cv::Mat luminance;
+  cv::split(differentColorSpace, mv);
+  mv[0].copyTo(luminance);
+
+  // recursion bilateral filter
+  int times = std::max(iteration.quantize, iteration.edge);
+  cv::Mat forQuan, forEdge;
+  for (int i = 0; i < times; ++i){
+    piecewiseLinearBilateralFilter<double>(luminance, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminance);
+    if (i == iteration.quantize - 1){
+      luminance.copyTo(forQuan);
+    }
+    if (i == iteration.edge - 1){
+      luminance.copyTo(forEdge);
+    }
+  }
+
+  // luminance quantization
+  cv::Mat quantize;
+  //luminanceQuantization<double>(forQuan, quantization.bins, quantize);
+  luminancePseudoQuantization<double>(forQuan, quantization.bins, quantization.bottom, quantization.top, quantize);
+
+  // edge detection
+  cv::Mat edge;
+  //DoG_EdgeDetection<double>(forEdge, edge, 0.98, 2.0, 1.0);
+
+  // image based warping
+  //imageBasedWarping<double>(original, edge, dist, 1.5, 2.7);
+  //cv::imshow("srcFiltered", srcFiltered);
+  //cv::imshow("Edge0", edge);
+  //cv::imshow("Edge1", dist);
+  //cv::waitKey(0);
 }
 
 }

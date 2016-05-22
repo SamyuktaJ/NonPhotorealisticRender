@@ -6,7 +6,7 @@
 #include <vector>
 #include <string>
 #include <functional>
-#include <math.h>
+#include <cmath>
 
 namespace cp{
 

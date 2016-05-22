@@ -1,6 +1,8 @@
 # Non Photorealistic Render Configuration
 originalImage,../image/Lenna.png
-# bilateral, {windowSize}, {sigmaS}, {sigmaR}
-bilateral,35,100,0.8
+# bilateral, {windowSize}, {sigmaS}, {sigmaR}, {segment}
+bilateral,35,100,0.8,21
 # iteration, {quantize}, {edge}
 iteration,3,3
+# quantization, {bins}, {bottom}, {top}
+quantization,11,1.2,2.4
