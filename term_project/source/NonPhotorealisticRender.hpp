@@ -135,15 +135,13 @@ void NonPhotorealisticRender::run(){
   cv::Mat luminance, luminanceFiltered;
   cv::split(differentColorSpace, mv);
   mv[0].copyTo(luminance);
+  mv[0].copyTo(luminanceFiltered);
 
   // recursion bilateral filter
   int times = std::max(iteration.quantize, iteration.edge);
   cv::Mat forQuan, forEdge;
   for (int i = 0; i < times; ++i){
-    if (i == 0)
-      piecewiseLinearBilateralFilter<double>(luminance, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminanceFiltered);
-    else
-      piecewiseLinearBilateralFilter<double>(luminanceFiltered, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminanceFiltered);
+    piecewiseLinearBilateralFilter<double>(luminanceFiltered, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminanceFiltered);
 
     if (i == iteration.quantize - 1){
       luminanceFiltered.copyTo(forQuan);
