@@ -457,13 +457,13 @@ void luminanceQuantization(const cv::Mat& src, int bins, cv::Mat& dist){
 }
 
 template<typename T>
-void mergeImageAndEdge(const cv::Mat& src, const cv::Mat& edgeMap, cv::Mat& dist){
+void mergeImageAndEdge(const cv::Mat& src, const cv::Mat& edgeMap, double threshold, cv::Mat& dist){
   T minIntensity = 0.0;
   T maxIntensity = 0.0;
   cv::minMaxIdx(edgeMap, &minIntensity, &maxIntensity);
-  elementWiseOperator<T>(src, edgeMap, dist, [](T x, T y){
-    if (y < 1.0){
-      return y;
+  elementWiseOperator<T>(src, edgeMap, dist, [=](T x, T y){
+    if (y > threshold){
+      return 0.0;
     }
     return x;
   });
