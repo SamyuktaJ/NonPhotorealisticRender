@@ -1,6 +1,0 @@
-# Non Photorealistic Render Configuration
-originalImage,../../image/Lenna.png
-# bilateral, {windowSize}, {sigmaS}, {sigmaR}
-bilateral,35,100,0.8
-# iteration, {quantize}, {edge}
-iteration,3,3

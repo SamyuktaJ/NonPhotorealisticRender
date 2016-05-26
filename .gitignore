@@ -31,3 +31,7 @@ Thumbs.db
 *.suo
 *.VC.db
 *.vs
+*.obj.enc
+*.xml
+*.iobj
+*.ipdb
