@@ -187,7 +187,15 @@ void NonPhotorealisticRender::run(){
       LAB2BGR(dist, dist);
 
       // write image
-      std::string filename = imageFilename + "_" + luminanceListName[j] + "_" + edgeListName[i] + ".png";
+      std::ostringstream ss;
+      ss << imageFilename << "_";
+      ss << "bilateral_" << bilateral.windowSize << "_" << bilateral.sigmaS << "_" << bilateral.sigmaR << "_" << bilateral.segment << "_";
+      ss << "iteration_" << iteration.quantize << "_" << iteration.edge << "_";
+      ss << "quantization_" << quantization.bins << "_" << quantization.bottom << "_" << quantization.top << "_";
+      ss << "DoG_" << DoG.windowSize << "_" << DoG.sigmaE << "_" << DoG.tau << "_" << DoG.phi << "_" << DoG.iteration << "_";
+      ss << "IBW_" << IBW.windowSize << "_" << IBW.sigmaS << "_" << IBW.scale << "_";
+      ss << luminanceListName[j] + "_" + edgeListName[i] + ".png";
+      std::string filename = ss.str();
       writeImage(filename, dist);
     }
   }
