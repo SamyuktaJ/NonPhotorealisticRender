@@ -163,25 +163,32 @@ void NonPhotorealisticRender::run(){
   // image based warping
   imageBasedWarping<double>(luminance, edge, edgeIBW, IBW.sigmaS, IBW.scale, IBW.windowSize);
 
-  cv::imshow("luminance", luminance / 100.0);
-  cv::imshow("srcFiltered", forEdge / 100.0);
-  cv::imshow("edge", edge);
-  cv::imshow("edgeIBW", edgeIBW);
-  cv::waitKey(0);
-
   // merge image and edge
   cv::Mat newL;
-  mergeImageAndEdge<double>(forEdge, edge, newL);
+  edge = 1 - edge;
+  edgeIBW = 1 - edgeIBW;
+  cv::Mat edgeList[2] = {edge, edgeIBW};
+  cv::Mat luminanceList[2] = { quantize, forEdge };
+  std::string edgeListName[2] = {"edge", "ibw"};
+  std::string luminanceListName[2] = {"quantize", "filtered"};
 
-  // merge 3 channels
-  cv::Mat dist;
-  newL.copyTo(mv[0]);
-  cv::merge(&mv[0], 3, dist);
+  for (int i = 0; i < 2; ++i){
+    for (int j = 0; j < 2; ++j){
+      mergeImageAndEdge<double>(luminanceList[j], edgeList[i], 0.001, newL);
 
-  // change color space to BGR
-  LAB2BGR(dist, dist);
-  cv::imshow("New image", dist);
-  cv::waitKey(0);
+      // merge 3 channels
+      cv::Mat dist;
+      newL.copyTo(mv[0]);
+      cv::merge(&mv[0], 3, dist);
+
+      // change color space to BGR
+      LAB2BGR(dist, dist);
+
+      // write image
+      std::string filename = imageFilename + "_" + luminanceListName[j] + "_" + edgeListName[i] + ".png";
+      writeImage(filename, dist);
+    }
+  }
 }
 
 }
