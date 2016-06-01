@@ -42,6 +42,7 @@ private:
     double tau;
     double sigmaE;
     double phi;
+    int iteration;
   } DoG;
 
   struct {
@@ -112,6 +113,7 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
             DoG.sigmaE = std::stod(splstr[2]);
             DoG.tau = std::stod(splstr[3]);
             DoG.phi = std::stod(splstr[4]);
+            DoG.iteration = std::stoi(splstr[5]);
           }
           else if (splstr[0] == "IBW") {
             IBW.windowSize = std::stoi(splstr[1]);
@@ -158,7 +160,7 @@ void NonPhotorealisticRender::run(){
 
   // edge detection
   cv::Mat edge, edgeIBW;
-  DoG_EdgeDetection<double>(forEdge, edge, DoG.tau, DoG.sigmaE, DoG.phi, DoG.windowSize);
+  DoG_EdgeDetection<double>(forEdge, edge, DoG.tau, DoG.sigmaE, DoG.phi, DoG.windowSize, DoG.iteration);
 
   // image based warping
   imageBasedWarping<double>(luminance, edge, edgeIBW, IBW.sigmaS, IBW.scale, IBW.windowSize);
@@ -174,7 +176,7 @@ void NonPhotorealisticRender::run(){
 
   for (int i = 0; i < 2; ++i){
     for (int j = 0; j < 2; ++j){
-      mergeImageAndEdge<double>(luminanceList[j], edgeList[i], 0.001, newL);
+      mergeImageAndEdge<double>(luminanceList[j], edgeList[i], 0.1, newL);
 
       // merge 3 channels
       cv::Mat dist;

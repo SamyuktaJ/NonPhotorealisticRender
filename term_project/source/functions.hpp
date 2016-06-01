@@ -197,34 +197,34 @@ void BGR2L(const cv::Mat& src, cv::Mat& dist) {
 }
 
 template<typename T>
-void DoG_EdgeDetection(const cv::Mat& src, cv::Mat& dist, double tau, double sigmaE, double phi, int windowSize) {
+void DoG_EdgeDetection(const cv::Mat& src, cv::Mat& dist, double tau, double sigmaE, double phi, int windowSize, int iteration) {
   // Perfom edge detection on lmninance channel
   assert(src.channels() == 1);
-  dist = cv::Mat(src.rows, src.cols, CV_64FC1);  
+  dist = cv::Mat(src.rows, src.cols, CV_64FC1, 1.0);  
 
   // generate 2 Gaussian filtered image
-  cv::Mat S_sigmaE, S_sigmaR;
-  gaussianFilter2D<T>(src, windowSize, sigmaE, S_sigmaE);
-  gaussianFilter2D<T>(src, windowSize, sigmaE*sqrt(1.6), S_sigmaR);
+  cv::Mat S_sigmaE, S_sigmaR, S_sigmaR2, temp;
+  gaussianFilter2D<T>(src, windowSize, sigmaE*1.6, S_sigmaR2);
 
   // DoG
-  T *outPix, *sigmaE_Pix, *sigmaR_Pix;
-  for (int i = 0; i < dist.rows; ++i) {
-    outPix = dist.ptr<T>(i);
-    sigmaE_Pix = S_sigmaE.ptr<T>(i);
-    sigmaR_Pix = S_sigmaR.ptr<T>(i);
-    for (int j = 0; j < dist.cols; ++j) {
+  for (int i = 0; i < iteration; ++i){
+    gaussianFilter2D<T>(src, windowSize, sigmaE, S_sigmaE);
+    gaussianFilter2D<T>(src, windowSize, sigmaE*sqrt(1.6), S_sigmaR);
+    elementWiseOperator<T>(S_sigmaE, S_sigmaR, temp, [=](T x, T y){
       // slightly smoothed step function
-      if ((sigmaE_Pix[0] - tau * sigmaR_Pix[0]) > 0)
-        outPix[0] = 1.0;
+      if ((x - tau * y) > 0)
+        return 1.0;
       else
-        outPix[0] = 1.0 + tanh(phi * (sigmaE_Pix[0] - tau * sigmaR_Pix[0]));
+        return 1.0 + tanh(phi * (x - tau * y));
+    });
 
-      outPix++;
-      sigmaE_Pix++;
-      sigmaR_Pix++;
-    }
+    sigmaE *= sqrt(1.6);
+    elementWiseOperator<T>(dist, temp, dist, [=](T x, T y){
+      return std::min(x, y);
+    });
+    //cv::imshow("edge" + std::to_string(i), dist);
   }
+  //cv::waitKey();
 }
 
 template<typename T>
