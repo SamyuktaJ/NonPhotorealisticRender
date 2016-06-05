@@ -24,6 +24,7 @@ private:
     double sigmaS;
     double sigmaR;
     int segment;
+    int skip;
   } bilateral;
 
   struct {
@@ -98,6 +99,7 @@ NonPhotorealisticRender::NonPhotorealisticRender(const std::string& configFile){
             bilateral.sigmaS = std::stod(splstr[2]);
             bilateral.sigmaR = std::stod(splstr[3]);
             bilateral.segment = std::stoi(splstr[4]);
+            bilateral.skip = std::stoi(splstr[5]);
           }
           else if (splstr[0] == "iteration"){
             iteration.quantize = std::stoi(splstr[1]);
@@ -134,38 +136,65 @@ void NonPhotorealisticRender::run(){
 
   // separate luminance
   std::vector<cv::Mat> mv;
-  cv::Mat luminance, luminanceFiltered;
+  cv::Mat luminance, luminanceFiltered, aFiltered, bFiltered;
   cv::split(differentColorSpace, mv);
   mv[0].copyTo(luminance);
   mv[0].copyTo(luminanceFiltered);
+  mv[1].copyTo(aFiltered);
+  mv[2].copyTo(bFiltered);
 
   // recursion bilateral filter
+  std::cout << "Start Bilateral Filter" << std::endl;
   int times = std::max(iteration.quantize, iteration.edge);
   cv::Mat forQuan, forEdge;
-  for (int i = 0; i < times; ++i){
-    piecewiseLinearBilateralFilter<double>(luminanceFiltered, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminanceFiltered);
+  if (bilateral.skip){
+    cv::FileStorage fs("bilateral.yml", cv::FileStorage::READ);
+    fs["forQuan"] >> forQuan;
+    fs["forEdge"] >> forEdge;
+    fs["aFiltered"] >> mv[1];
+    fs["bFiltered"] >> mv[2];
+    fs.release();
+  }
+  else{
+    for (int i = 0; i < times; ++i){
+      piecewiseLinearBilateralFilter<double>(luminanceFiltered, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, luminanceFiltered);
+      piecewiseLinearBilateralFilter<double>(aFiltered, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, aFiltered);
+      piecewiseLinearBilateralFilter<double>(bFiltered, bilateral.windowSize, bilateral.sigmaS, bilateral.sigmaR, bilateral.segment, bFiltered);
 
-    if (i == iteration.quantize - 1){
-      luminanceFiltered.copyTo(forQuan);
+      if (i == iteration.quantize - 1){
+        luminanceFiltered.copyTo(forQuan);
+        aFiltered.copyTo(mv[1]);
+        bFiltered.copyTo(mv[2]);
+      }
+      if (i == iteration.edge - 1){
+        luminanceFiltered.copyTo(forEdge);
+      }
     }
-    if (i == iteration.edge - 1){
-      luminanceFiltered.copyTo(forEdge);
-    }
+    cv::FileStorage fs("bilateral.yml", cv::FileStorage::WRITE);
+    fs << "forQuan" << forQuan;
+    fs << "forEdge" << forEdge;
+    fs << "aFiltered" << aFiltered;
+    fs << "bFiltered" << bFiltered;
+    fs.release();
   }
 
   // luminance quantization
+  std::cout << "Start Luminance Quantization" << std::endl;
   cv::Mat quantize;
   //luminanceQuantization<double>(forQuan, quantization.bins, quantize);
   luminancePseudoQuantization<double>(forQuan, quantization.bins, quantization.bottom, quantization.top, quantize);
 
   // edge detection
+  std::cout << "Start Edge Detection" << std::endl;
   cv::Mat edge, edgeIBW;
   DoG_EdgeDetection<double>(forEdge, edge, DoG.tau, DoG.sigmaE, DoG.phi, DoG.windowSize, DoG.iteration);
 
   // image based warping
+  std::cout << "Start Image Based Warping" << std::endl;
   imageBasedWarping<double>(luminance, edge, edgeIBW, IBW.sigmaS, IBW.scale, IBW.windowSize);
 
   // merge image and edge
+  std::cout << "Start Merge and Output" << std::endl;
   cv::Mat newL;
   edge = 1 - edge;
   edgeIBW = 1 - edgeIBW;

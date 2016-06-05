@@ -38,7 +38,7 @@ class ParameterSlider(QtGui.QWidget):
 def write_config_file(**para):
     with open(para['filename'], 'w') as file:
         file.write('originalImage,{}{}\n'.format(para['image_dir'], para['image']))
-        file.write('bilateral,{windowSize},{sigmaS},{sigmaR},{segment}\n'.format(**para['bilateral']))
+        file.write('bilateral,{windowSize},{sigmaS},{sigmaR},{segment},{skip}\n'.format(**para['bilateral']))
         file.write('iteration,{quantize},{edge}\n'.format(**para['iteration']))
         file.write('quantization,{bins},{bottom},{top}\n'.format(**para['quantization']))
         file.write('DoG,{windowSize},{sigmaE},{tau},{phi},{iteration}\n'.format(**para['DoG']))
@@ -85,10 +85,10 @@ class Dictionary(QtGui.QWidget):
 
         self.dog = {
             'name': QtGui.QLabel('DoG'),
-            'windowSize': ParameterSlider('Window Size', 1, 51, 2, 7),
+            'windowSize': ParameterSlider('Window Size', 1, 101, 2, 7),
             'sigmaE': ParameterSlider('Sigma E', 0.1, 10, 0.1, 0.5),
-            'tau': ParameterSlider('Tau', 0.9, 1.1, 0.01, 0.98),
-            'phi': ParameterSlider('Phi', 0.9, 1.1, 0.01, 1.0),
+            'tau': ParameterSlider('Tau', 0.8, 1.2, 0.01, 0.98),
+            'phi': ParameterSlider('Phi', 0.1, 10, 0.1, 1.0),
             'iteration': ParameterSlider('Iteration', 1, 10, 1, 3)
         }
         self.dog['name'].setAlignment(QtCore.Qt.AlignCenter)
@@ -140,6 +140,10 @@ class Dictionary(QtGui.QWidget):
         self.b2.setChecked(True)
         self.b2.stateChanged.connect(self.showNPRImage)
         ckb.addWidget(self.b2)
+        
+        self.skip = QtGui.QCheckBox("Skip bilateral")
+        self.skip.setChecked(False)
+        ckb.addWidget(self.skip)
 
         layout.addLayout(ckb)
 
@@ -176,6 +180,7 @@ class Dictionary(QtGui.QWidget):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file', os.getcwd(), 'Image files (*.jpg *.png)')
         self.filename = fname
         self.le.setPixmap(QtGui.QPixmap(fname).scaledToHeight(512))
+        self.moveResult()
     
     def quitNPR(self):
         self.moveResult()
@@ -192,6 +197,10 @@ class Dictionary(QtGui.QWidget):
         
     def runNPR(self):
         self.moveResult()
+        if self.skip.isChecked() == True:
+            skip = 1
+        else:
+            skip = 0
         para = {
             'filename': 'conf.csv',
             'exe': 'term_project.exe',
@@ -202,7 +211,8 @@ class Dictionary(QtGui.QWidget):
                 'windowSize': self.bilateral['windowSize'].getValue(),
                 'sigmaS': float('%.6g'%(self.bilateral['sigmaS'].getValue())),
                 'sigmaR': float('%.6g'%(self.bilateral['sigmaR'].getValue())),
-                'segment': self.bilateral['segment'].getValue()},
+                'segment': self.bilateral['segment'].getValue(),
+                'skip': skip},
             ## iteration, {quantize}, {edge}
             'iteration': {
                 'quantize': self.iteration['quantize'].getValue(),

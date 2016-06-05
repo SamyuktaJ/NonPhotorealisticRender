@@ -99,16 +99,6 @@ void LAB2BGR(const cv::Mat& src, cv::Mat& dist){
   dist32.convertTo(dist, CV_64FC3);
 }
 
-// BGR->YUV
-void BGR2YUV(const cv::Mat& src, cv::Mat& dist){
-  // TODO
-}
-
-// YUV->BGR
-void YUV2BGR(const cv::Mat& src, cv::Mat& dist){
-  // TODO
-}
-
 // padding image with boundary
 template<typename T>
 void paddingWithReplicate(const cv::Mat& src, int paddingSize, cv::Mat& dist){
@@ -185,15 +175,6 @@ void getGaussianKernel(int height, int width, double sigmaS, cv::Mat& kernel){
     }
   }
   kernel = kernel / sum;
-}
-
-// L range from 0 to 100
-void BGR2L(const cv::Mat& src, cv::Mat& dist) {
-  cv::Mat srcLab;
-  BGR2LAB(src, srcLab);
-  std::vector<cv::Mat> LabSplit;
-  split(srcLab, LabSplit);
-  dist = LabSplit[0];
 }
 
 template<typename T>
